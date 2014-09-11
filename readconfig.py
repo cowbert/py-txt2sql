@@ -18,6 +18,8 @@ def get_pglogon():
 
     for item in config.items('postgresql'):
         pglogon[item[0]] = item[1]
+    if 'target_table' not in pglogon:
+        pglogon['target_table'] =''
     return pglogon
 
 def get_saplogon():        

@@ -13,13 +13,20 @@ if args.config:
 else:
     config.read([fullconfig, localconfig])
 
+def get_pgquery():
+    pgquery = {}
+    
+    for item in config.items('pgquery'):
+        pgquery[item[0]] = item[1]
+    if 'target_table' not in pgquery:
+        pgquery['target_table'] =''
+    return pgquery
+
 def get_pglogon():
     pglogon = {}
 
-    for item in config.items('postgresql'):
+    for item in config.items('pglogon'):
         pglogon[item[0]] = item[1]
-    if 'target_table' not in pglogon:
-        pglogon['target_table'] =''
     return pglogon
 
 def get_saplogon():        

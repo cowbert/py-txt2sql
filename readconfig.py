@@ -13,6 +13,13 @@ if args.config:
 else:
     config.read([fullconfig, localconfig])
 
+def get_flatfile():
+    flatfile = {}
+    
+    for item in config.items('flatfile'):
+        flatfile[item[0]] = item[1]
+    return flatfile
+
 def get_pgquery():
     pgquery = {}
     

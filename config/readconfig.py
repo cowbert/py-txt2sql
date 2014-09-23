@@ -20,21 +20,21 @@ def get_flatfile():
         flatfile[item[0]] = item[1]
     try:
         delim = ast.literal_eval(flatfile['delimiter'])
+        if not isinstance(delim, basestring):
+            raise SystemExit(
+                'Specified Delimiter is not a string, '
+                'was given {}'.format(repr(delim)))
+        else:
+            delim_len = len(delim)
+            if delim_len > 1:
+                raise SystemExit(
+                    'Delimiter must be 1 character wide '
+                    'but is {} wide in config'.format(delim_len))
+        flatfile['delimiter'] = delim
     except KeyError:
         raise SystemExit(
             'Delimiter not specified in config file for section [flatfile]')
-    
-    if not isinstance(delim, basestring):
-        raise SystemExit(
-            'Specified Delimiter is not a string, '
-            'was given {}'.format(repr(delim)))
-    else:
-        delim_len = len(delim)
-        if delim_len > 1:
-            raise SystemExit(
-                'Delimiter must be 1 character wide '
-                'but is {} wide in config'.format(delim_len))
-    
+
     return flatfile
 
 def get_pgquery():

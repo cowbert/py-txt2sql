@@ -38,7 +38,7 @@ def get_flatfile():
                 'was given {0!r}'.format(delim))
         else:
             delim_len = len(delim)
-            if delim_len > 1:
+            if delim_len != 1:
                 raise SystemExit(
                     'Delimiter must be 1 character wide '
                     'but is {} wide in config'.format(delim_len))
@@ -56,7 +56,7 @@ def get_flatfile():
                 'was given {0!r}'.format(qual))
         else:
             qual_len = len(qual)
-            if delim_qual > 1:
+            if qual_len != 1:
                 raise SystemExit(
                     'Qualifier must be 1 character wide '
                     'but is {} wide in config'.format(qual_len))

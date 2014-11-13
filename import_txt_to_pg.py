@@ -1,8 +1,8 @@
 """
     Import Flat file (usually from SAP extract, but can be from Excel too)
-    to postgresql. Adapted from pyrfc_read_table except that it takes 
+    to postgresql. Adapted from pyrfc_read_table except that it takes
     a flatfile instead of hitting RFC).
-    
+
     Requires: ./config/readconfig.py and ./import_txt_to_pg.ini
 """
 
@@ -27,7 +27,7 @@ def conv_to_pydate(abap_date):
             #except:
             #    result = None
     return result
-    
+
 def conv_to_pytime(abap_time):
     if len(abap_time) != 6:
         result = None
@@ -40,7 +40,7 @@ def conv_to_pytime(abap_time):
         else:
             result = datetime.time(hour, minute, second)
     return result
-        
+
 def conv_to_pydec(abap_packed):
     #strip comma
     abap_packed = re.sub(',','',abap_packed)
@@ -83,6 +83,8 @@ pgquery_config = readconfig.get_pgquery()
 
 target_table = pgquery_config['target_table']
 
+debug_config = readconfig.debug_config()
+
 if target_table.strip() == '':
     target_table = os.path.basename(source_file).split('.')[0]
 
@@ -93,16 +95,20 @@ pgcur = pgconn.cursor()
 
 print "Stripping leading numerics from table name..."
 target_table = re.sub(r'^[0-9]+(.*)', r'\1', target_table)
+if debug_config['debug']:
+ print target_table
 print "Replacing non alphanumerics with '_' from table name..."
-target_table = re.sub(r'[^a-z0-9]', '_', target_table)
+target_table = re.sub(r'[^A-Za-z0-9]', '_', target_table)
+if debug_config['debug']:
+    print target_table
 print "Truncating table name length to 63 characters if necessary..."
 if len(target_table) > 63:
     target_table = target_table[:62]
-    
+
 print 'Resulting table name: %s' % target_table
 
 createsql = 'CREATE TABLE %s ' % target_table
-createsql += ('(' + ','.join(field[0] + ' ' + 
+createsql += ('(' + ','.join(field[0] + ' ' +
     typeconv[field[1]][0] for field in fields) + ')')
 insertsql = 'INSERT INTO %s ' % target_table
 insertsql += ('(' + ','.join(field[0] for field in fields) + ') VALUES (' +
@@ -113,19 +119,23 @@ confirm1 = raw_input("Drop if exists and create table %s? Typing 'N' will APPEND
 
 if confirm1.strip() == '' or confirm1.strip().lower() == 'y':
     pgcur.execute('DROP TABLE IF EXISTS ' + target_table)
-    
-    debug_config = readconfig.debug_config()
     if debug_config['debug']:
         print createsql
-    
+
     pgcur.execute(createsql)
     pgconn.commit()
     print pgcur.statusmessage
-    
+
 if debug_config['debug']:
     print insertsql
 
 f = io.open(source_file, mode='r', encoding=encoding)
+
+#skip lines
+if 'skiplines' in flatfile_config:
+    if flatfile_config['skiplines'] > 0:
+        for i in xrange(int(flatfile_config['skiplines'])):
+            next(f, None)
 
 total = 0
 while True:

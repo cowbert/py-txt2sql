@@ -70,6 +70,8 @@ fields = flatfile_config['fields']
 
 delim = flatfile_config['delimiter']
 
+qual = flatfile_config['qualifier']
+
 encoding = flatfile_config['encoding']
 
 if 'pkgsize' in flatfile_config:
@@ -146,7 +148,26 @@ while True:
         if row is None:
             break
         else:
-            row_ = row.rstrip('\r\n').split(delim)
+            #row_ = row.rstrip('\r\n').split(delim)
+            rowstrip = row.rstrip('\r\n')
+            fieldvalue = []
+            row_ = []
+            isqualified = False
+            for pos in xrange(len(rowstrip)):
+                if rowstrip[pos] == qual:
+                    # found qualifier
+                    isqualified = not isqualified
+                    # toggle the qualifier start/stop indicator
+                    continue # goto next char
+                if rowstrip[pos] == delim and isqualified is False:
+                    row_.append(''.join(fieldvalue))
+                    fieldvalue = []
+                    continue # goto next char
+
+                fieldvalue.append(rowstrip[pos]) # build the string
+            # capture the last group
+            row_.append(''.join(fieldvalue))
+
         for i in xrange(len(fields)):
             if row_[i] == '':
                 insertrow.append(None)

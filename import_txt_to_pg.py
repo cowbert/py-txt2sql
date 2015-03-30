@@ -120,6 +120,10 @@ qual = flatfile_config['qualifier']
 # see also https://docs.python.org/2/library/codecs.html#standard-encodings
 encoding = flatfile_config['encoding']
 
+# see https://docs.python.org/2/library/codecs.html#codec-base-classes
+# according to ../config/readconfig.py, the default value is 'strict'
+decoding_error_handler = flatfile_config['decoding_error_handler']
+
 # we can turn off bulk-reads by setting
 # pkgsize in [flatfile] to something small, like 1
 # setting it is recommended for files with many fields
@@ -247,7 +251,7 @@ while eof == 0:
             break
 
         try: #to convert line to a suitable unicode string
-            row = codecs.decode(row, encoding)
+            row = codecs.decode(row, encoding, decoding_error_handler)
         except Exception as e: # we were unable to parse the line according
                                # to the encoding specified in config
             print "{} at row {}".format(e, rowcounter)

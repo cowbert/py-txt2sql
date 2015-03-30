@@ -1,8 +1,15 @@
 import argparse, ConfigParser, ast
 import os, sys
 
+# http://stackoverflow.com/questions/3853722/python-argparse-how-to-insert-newline-in-the-help-text
+# mutate argparse.HelpFormatter._split_lines
+class SmartFormatter(argparse.HelpFormatter):
+    def _split_lines(self, text, width):
+        return text.splitlines()
+
 parser = argparse.ArgumentParser(
-    description='ETL Data from Data Source to PostgreSQL target')
+    description='ETL Data from Data Source to PostgreSQL target',
+    formatter_class=SmartFormatter)
 parser.add_argument('-a','--append', action='store_true')
 parser.add_argument('-c', '--config')
 parser.add_argument('-f', '--from', dest='src_data')
@@ -13,6 +20,18 @@ parser.add_argument('--delim', dest='delim')
 parser.add_argument('--qual', dest='qual')
 parser.add_argument('--encoding',dest='encoding')
 parser.add_argument('--override',action='store_true')
+parser.add_argument('--decoding-error-handler', default='strict',
+    choices = ['strict','ignore','replace'],
+    dest='decoding_error_handler',
+    help=(
+        'This overrides the default behavior of the Character Encoding '
+        'decoder so that invalid characters found in the input string ('
+        'that does not have a valid mapping for the code page specified '
+        'by --encoding does not throw an exception. The accceptable values '
+        'are:\n'
+        'strict - default, on decoding error, will throw exception and bail\n'
+        'ignore - ignore character\n'
+        'replace - replace with U+FFFD (<?>)'))
 parser.add_argument('src_data_', metavar='SRC_DATA', nargs='?',
     default='')
 parser.add_argument('target_table_', metavar='TARGET_TABLE', nargs='?',
@@ -118,6 +137,7 @@ def get_flatfile():
         else:
             flatfile['encoding'] = args.encoding
 
+    flatfile['decoding_error_handler'] = args.decoding_error_handler
 
     if 'source' not in flatfile:
         if args.src_data:
@@ -236,7 +256,6 @@ def validator_config():
         flatfile['fields'] = fields_
     except KeyError:
         raise SystemExit('No fields defined in config to map')
-
 
 # Unit tests
 #if __name__ == "__main__":

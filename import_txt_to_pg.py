@@ -11,7 +11,7 @@
     Author: Peter C. Lai (peter.lai2@sbdinc.com)
 """
 
-import io, psycopg2, re, sys, decimal, datetime, os, ast, codecs
+import io, psycopg2, re, sys, decimal, datetime, os, ast, codecs, logging
 from config import readconfig
 
 # Helper Functions
@@ -90,7 +90,12 @@ typeconv = {    'I':['integer',int],
 
 """ Configuration and Validation Code"""
 # Get the postgresql Logon information from the config file
-pglogon = readconfig.get_pglogon()
+sqlserver = readconfig.get_sqlserver()
+
+if sqlserver['servertype'] == 'postgres':
+    pglogon = {}
+    for each in ['host','port','dbname','user','password']:
+        pglogon[each] = sqlserver[each]
 
 # Get the flatfile ETL configuration information from the config file
 # [flatfile] section
@@ -153,6 +158,34 @@ debug_config = readconfig.debug_config()
 # file basename
 if target_table.strip() == '':
     target_table = os.path.basename(source_file).split('.')[0]
+
+logging_config = readconfig.get_logging()
+
+# setup logging if specified
+# h/t: http://www.electricmonk.nl/log/2011/08/14/redirect-stdout-and-stderr-to-a-logger-in-python/
+# see also: http://stackoverflow.com/a/19438364/2718295
+class LogWriter:
+    def __init__(self, logger):
+        self.logger = logger
+        self.log_level = logging.INFO
+        self.linebuf = ''
+
+    def write(self, buf):
+        for line in buf.rstrip().splitlines():
+            self.logger.log(self.log_level, line.rstrip())
+
+if logging_config['logging']:
+    logging.basicConfig(
+        level=logging.DEBUG,
+        format='%(asctime)s: %(message)s',
+        filename=(os.path.splitext(os.path.basename(
+                sys.argv[0]))[0] + '.log'),
+        filemode = 'a'
+    )
+    loginstance = logging.getLogger('log')
+    logwriterinstance = LogWriter(loginstance)
+    sys.stdout = logwriterinstance
+    sys.stderr = logwriterinstance
 
 """ Begin Database Operations"""
 print "Connecting to database..."
@@ -217,6 +250,9 @@ if confirm1.strip() == '' or confirm1.strip().lower() == 'y':
 
 if debug_config['debug']:
     print insertsql
+
+sizeof_file = sum(1 for line in open(source_file, mode='rU'))
+print "Size of File {}".format(sizeof_file)
 
 # open the source file for reading
 f = open(source_file, mode='rU')
@@ -303,6 +339,6 @@ while eof == 0:
         pgconn.commit()
         print pgcur.statusmessage
         total += len(insertdata)
-        print "Rows inserted: %d" % total
+        print "Rows inserted: {}, {}% of file".format(total, (total*100)/sizeof_file)
     #if row is None:
 print "Exceptions: {}".format(exceptioncounter)

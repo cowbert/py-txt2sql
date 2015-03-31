@@ -19,6 +19,11 @@ parser.add_argument('-y', '--yes', action='store_true')
 parser.add_argument('--delim', dest='delim')
 parser.add_argument('--qual', dest='qual')
 parser.add_argument('--encoding',dest='encoding')
+parser.add_argument('--skip', dest='skiplines',
+    help=('Number of Lines in Source File to Skip '
+            'e.g. 1 to skip the first row that is a column header'))
+parser.add_argument('--pkgsize', dest='pkgsize',
+    help=('Number of bulk rows to try to read and insert per transaction'))
 parser.add_argument('--override',action='store_true')
 parser.add_argument('--decoding-error-handler', default='strict',
     choices = ['strict','ignore','replace'],
@@ -149,6 +154,39 @@ def get_flatfile():
                 'specified in the .ini file, using -f or as an '
                 'argument')
 
+    if 'skiplines' not in flatfile:
+        if args.skiplines:
+            try:
+                flatfile['skiplines'] = int(args.skiplines)
+            except ValueError:
+                # this was provided but wasn't an integer
+                flatfile['skiplines'] = 0
+    else:
+        try:
+            flatfile['skiplines'] = int(flatfile['skiplines'])
+        except ValueError:
+            # this was provided but wasn't an integer
+            flatfile['skiplines'] = 0
+
+    # we can turn off bulk-reads by setting
+    # pkgsize in [flatfile] to something small, like 1
+    # setting it is recommended for files with many fields
+    # the larger this number, the more memory per read this
+    # program will take
+    if 'pkgsize' not in flatfile:
+        if args.pkgsize:
+            try:
+                flatfile['pkgsize'] = int(args.pkgsize)
+            except ValueError:
+                # this was provided but wasn't an integer
+                flatfile['pkgsize'] = 1
+    else:
+        try:
+            flatfile['pkgsize'] = int(flatfile['pkgsize'])
+        except ValueError:
+            # pkgsize was provided but wasn't an integer
+            flatfile['pkgsize'] = 1
+
     return flatfile
 
 def get_pgquery():
@@ -171,13 +209,13 @@ def get_pgquery():
 
     return pgquery
 
-# logon credentials and target db for postgresql
-def get_pglogon():
-    pglogon = {}
+# logon credentials and target db for target sql server
+def get_sqlserver():
+    sqlserver = {}
 
-    for item in config.items('pglogon'):
-        pglogon[item[0]] = item[1]
-    return pglogon
+    for item in config.items('sqlserver'):
+        sqlserver[item[0]] = item[1]
+    return sqlserver
 
 # logon credentials and target instance for SAP (RFC)
 def get_saplogon():

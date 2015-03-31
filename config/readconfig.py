@@ -1,4 +1,4 @@
-import argparse, ConfigParser, ast
+import argparse, ConfigParser, ast, logging
 import os, sys
 
 # http://stackoverflow.com/questions/3853722/python-argparse-how-to-insert-newline-in-the-help-text
@@ -37,6 +37,7 @@ parser.add_argument('--decoding-error-handler', default='strict',
         'strict - default, on decoding error, will throw exception and bail\n'
         'ignore - ignore character\n'
         'replace - replace with U+FFFD (<?>)'))
+parser.add_argument('--log', dest='logging', action='store_true')
 parser.add_argument('src_data_', metavar='SRC_DATA', nargs='?',
     default='')
 parser.add_argument('target_table_', metavar='TARGET_TABLE', nargs='?',
@@ -294,6 +295,17 @@ def validator_config():
         flatfile['fields'] = fields_
     except KeyError:
         raise SystemExit('No fields defined in config to map')
+
+def get_logging():
+    logging = {}
+    try:
+        for item in config.items('logging'):
+            logging[item[0]] = item[1]
+    except ConfigParser.NoSectionError:
+        pass
+    if 'logging' not in logging:
+        logging['logging'] = args.logging
+    return logging
 
 # Unit tests
 #if __name__ == "__main__":

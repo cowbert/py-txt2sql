@@ -1,0 +1,117 @@
+# configuration file for import_to_pg.py
+
+# this section is required
+[sqlserver]
+# servertype can be one of: postgres or mssql
+
+servertype= postgresql
+
+# for servertype = mssql type the host\instance
+
+host= localhost
+
+# for local non-TCP/IP mssql, port is optional.
+# otherwise specify the port
+
+port= 5432
+
+# database name, user, password
+
+dbname= test
+
+user= myusername
+
+password= mypassword
+
+# this section will be deprecated
+# but is used to specify the target table
+[pgquery]
+# this is optional parameter to "hard code" a target table
+# name in the config file, overriding -t on the
+# command line. If this parameter is not specified
+# here, it must be specified using -t on the command line
+
+# target_table=
+
+# this is the metadata of the input source data
+# it is required
+[flatfile]
+# the python standard encoding type
+# see https://docs.python.org/2/library/codecs.html#standard-encodings
+# this overrides the command line --encoding option
+
+encoding = cp1252 ; for MS1252 flatfiles
+# encoding = utf16 ; for files generated from Excel Unicode text
+
+
+# optional parameter to set the error handling
+# for when a byte in the input cannot be mapped to
+# the specified encoding
+# valid values are: strict, ignore, replace
+# - strict is the default, the program will throw an exception
+# and skip the entire input row
+# - ignore will ignore the error and copy the byte into
+# the target field
+# - replace will replace the bad byte with a <?> symbol (U+FFFD)
+# 'replace' is preferable to 'ignore' if you want to force
+# the offending row to be inserted into the db
+# this option overrides the --decoding-error-handler
+# command line option.
+
+# decoding_error_handler = replace
+
+# use posix escapes for non-printing character delimiters
+# and qualifiers
+# e.g. '\t' for TAB
+# for unicode use u'\uNNNN' where NNNN is the unicode code point
+# e.g. u'\u2016'
+# for raw hex bytes, use '\xNN' where NN is the hex value
+# of the character
+
+# overrides the --delim command line option
+delimiter = '|'
+
+# overrides the --qual command line option
+qualifier = '\x02'
+
+# how many lines/rows in the input files to skip
+# e.g. 1 if the first line is a column header row
+# this overrides the --skip command line option
+
+skiplines = 1
+
+# we can turn off bulk-reads by setting
+# pkgsize in [flatfile] to something small, like 1
+# setting it is recommended for files with many fields
+# the larger this number, the more memory per read this
+# program will take. Default is 100000.
+# specifying this option here overrides the --pkgsize
+# command line option
+
+# pkgsize = 100000
+
+# the following are critical field metadata.
+# it specifies the column name and data type
+# it should be in the format of:
+# field1 datatype, field2 datatype, etc.
+#
+# Fields convention should be SQL-conformant
+# colume names:
+#
+# Columns cannot start with a number
+# columns should only contain characters [a-z0-9_]
+# columns need to be uniquely named and they are case-insensitive
+#
+# Data types are SAP ABAP-compatible data types:
+# I: integer
+# F: unsigned decimal (this is slightly faster than P)
+# P: decimal (P is for Packed BCD support where - sign can be
+#             on right hand side)
+# C: characters/strings
+# D: date in YYYY-MM-DD or YYYYMMDD format
+# T: time in HH:MM:SS or HHMMSS format
+#
+# To split this line you must indent after the new line
+
+fields= company_code C, invoice_date D, fiscal_year C,
+    invoice_amount P, net_days_due I

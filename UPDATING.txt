@@ -1,0 +1,43 @@
+This file documents major (breaking) changes made to this library.
+You should get into the habit of checking this file in the Git repo
+for any changes that may break existing installations prior to
+upgrading your version.
+
+2015-03-30:
+    In order to add support for MS SQL as a target platform,
+    the [pglogon] section in the configuration file has been
+    renamed to [sqlserver].
+
+    This section now takes an extra, required keyword: servertype
+    The value of 'servertype' must be "postgres" or "mssql".
+
+    Old Version Example:
+    [pglogon]
+    # postgresql db connection parameters (write-access)
+    host= localhost
+    port= 5432
+    dbname= mydb
+    user= myuser
+    password= mypassword
+
+    New Version Example:
+    [sqlserver]
+    # target sql server connection parameters
+    servertype= postgres
+
+    # postgresql db connection parameters (write-access)
+    host= localhost
+    port= 5432
+    dbname= mydb
+    user= myuser
+    password= mypassword
+
+    For servertype= mssql, the port is optional if we are
+    connecting to the local SQL server cluster not via TCP/IP.
+    We also use 'hostname\instance'
+
+    [sqlserver]
+    servertype= mssql
+    host= (local)\SQLEXPRESS
+    port=
+    ...

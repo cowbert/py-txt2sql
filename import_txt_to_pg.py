@@ -10,9 +10,38 @@
 
     Author: Peter C. Lai (peter.lai2@sbdinc.com)
 """
-
-import io, psycopg2, re, sys, decimal, datetime, os, ast, codecs, logging
 from config import readconfig
+
+logging_config = readconfig.get_logging()
+
+# setup logging if specified
+# h/t: http://www.electricmonk.nl/log/2011/08/14/redirect-stdout-and-stderr-to-a-logger-in-python/
+# see also: http://stackoverflow.com/a/19438364/2718295
+import logging
+class LogWriter:
+    def __init__(self, logger):
+        self.logger = logger
+        self.log_level = logging.INFO
+        self.linebuf = ''
+
+    def write(self, buf):
+        for line in buf.rstrip().splitlines():
+            self.logger.log(self.log_level, line.rstrip())
+
+if logging_config['logging']:
+    logging.basicConfig(
+        level=logging.DEBUG,
+        format='%(asctime)s: %(message)s',
+        filename=(os.path.splitext(os.path.basename(
+                sys.argv[0]))[0] + '.log'),
+        filemode = 'a'
+    )
+    loginstance = logging.getLogger('log')
+    logwriterinstance = LogWriter(loginstance)
+    sys.stdout = logwriterinstance
+    sys.stderr = logwriterinstance
+
+import io, re, sys, decimal, datetime, os, ast, codecs
 
 # Helper Functions
 def conv_to_pydate(abap_date):
@@ -72,30 +101,7 @@ def conv_to_pydec(abap_packed):
         result = decimal.Decimal(abap_packed)
     return result
 
-"""
-Lookup table that converts the 1-character datatype
-code in the config file to a SQL (postgres) data type
-and the corresponding python type conversion function.
-int(), decimal.Decimal(), and unicode() are from the
-python builtin and decimal core libraries.
-"""
-typeconv = {    'I':['integer',int],
-                'F':['numeric', decimal.Decimal],
-                'P':['numeric', conv_to_pydec],
-                'C':['text', unicode],
-                'D':['date', conv_to_pydate],
-                'T':['time', conv_to_pytime],
-                'N':['text', unicode],
-                'STRING':['text', unicode]}
-
 """ Configuration and Validation Code"""
-# Get the postgresql Logon information from the config file
-sqlserver = readconfig.get_sqlserver()
-
-if sqlserver['servertype'] == 'postgres':
-    pglogon = {}
-    for each in ['host','port','dbname','user','password']:
-        pglogon[each] = sqlserver[each]
 
 # Get the flatfile ETL configuration information from the config file
 # [flatfile] section
@@ -134,10 +140,10 @@ decoding_error_handler = flatfile_config['decoding_error_handler']
 # setting it is recommended for files with many fields
 # the larger this number, the more memory per read this
 # program will take
-if 'pkgsize' in flatfile_config:
-    pkgsize = flatfile_config['pkgsize']
-else:
-    pkgsize = 100000
+#if 'pkgsize' in flatfile_config:
+#    pkgsize = flatfile_config['pkgsize']
+#else:
+#    pkgsize = 100000
 
 # we can hardcode the name of the source flatfile
 # in the config file under [flatfile]
@@ -159,39 +165,7 @@ debug_config = readconfig.debug_config()
 if target_table.strip() == '':
     target_table = os.path.basename(source_file).split('.')[0]
 
-logging_config = readconfig.get_logging()
-
-# setup logging if specified
-# h/t: http://www.electricmonk.nl/log/2011/08/14/redirect-stdout-and-stderr-to-a-logger-in-python/
-# see also: http://stackoverflow.com/a/19438364/2718295
-class LogWriter:
-    def __init__(self, logger):
-        self.logger = logger
-        self.log_level = logging.INFO
-        self.linebuf = ''
-
-    def write(self, buf):
-        for line in buf.rstrip().splitlines():
-            self.logger.log(self.log_level, line.rstrip())
-
-if logging_config['logging']:
-    logging.basicConfig(
-        level=logging.DEBUG,
-        format='%(asctime)s: %(message)s',
-        filename=(os.path.splitext(os.path.basename(
-                sys.argv[0]))[0] + '.log'),
-        filemode = 'a'
-    )
-    loginstance = logging.getLogger('log')
-    logwriterinstance = LogWriter(loginstance)
-    sys.stdout = logwriterinstance
-    sys.stderr = logwriterinstance
-
 """ Begin Database Operations"""
-print "Connecting to database..."
-
-pgconn = psycopg2.connect(**pglogon)
-pgcur = pgconn.cursor()
 
 # auto-validate the choice of table name
 print "Stripping leading numerics from table name..."
@@ -208,14 +182,74 @@ if len(target_table) > 63:
 
 print 'Resulting table name: %s' % target_table
 
+# Get the postgresql Logon information from the config file
+sqlserver = readconfig.get_sqlserver()
+
+print "Connecting to database..."
+
+if sqlserver['servertype'] == 'postgres':
+    import psycopg2
+    pglogon = {}
+    for each in ['host','port','dbname','user','password']:
+        pglogon[each] = sqlserver[each]
+    sqlconn = psycopg2.connect(**pglogon)
+    """
+    Lookup table that converts the 1-character datatype
+    code in the config file to a SQL (postgres) data type
+    and the corresponding python type conversion function.
+    int(), decimal.Decimal(), and unicode() are from the
+    python builtin and decimal core libraries.
+    """
+    typeconv = {    'I':['integer',int],
+                    'F':['numeric', decimal.Decimal],
+                    'P':['numeric', conv_to_pydec],
+                    'C':['text', unicode],
+                    'D':['date', conv_to_pydate],
+                    'T':['time', conv_to_pytime],
+                    'N':['text', unicode],
+                    'STRING':['text', unicode]}
+    # we use different placeholder depending on driver
+    ph = r'%s'
+    autodroptable = 'DROP TABLE IF EXISTS ' + target_table
+
+elif sqlserver['servertype'] == 'mssql':
+    import pyodbc
+    if not sqlserver['port']:
+        sqlserver['port'] = ''
+    sqldsn = ('DRIVER={SQL Server};'
+        'SERVER=%s;DATABASE=%s;UID=%s;PWD=%s;PORT=%s') % (
+            sqlserver['host'],sqlserver['dbname'],sqlserver['user'],
+            sqlserver['password'],sqlserver['port'])
+    sqlconn = pyodbc.connect(sqldsn)
+    # MSSQL is still using legacy numerics
+    typeconv = {    'I':['integer',int],
+                    'F':['numeric(38,38)', decimal.Decimal],
+                    'P':['numeric(38,38)', conv_to_pydec],
+                    'C':['nvarchar(max)', unicode],
+                    'D':['date', conv_to_pydate],
+                    'T':['time', conv_to_pytime],
+                    'N':['nvarchar(max)', unicode],
+                    'STRING':['nvarchar(max)', unicode]}
+    # we use different placeholder depending on driver
+    ph = '?'
+    autodroptable = ("IF EXISTS (SELECT 1 "
+        "from INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = '{0}') "
+        "DROP TABLE {0}").format(target_table)
+
+else:
+    raise RuntimeError("servertype in config file's "
+                       "[sqlserver] section must be one of "
+                       "'postgres' or 'mssql'")
+
 # autogenerate SQL for table creation and
 # row insertion
 createsql = 'CREATE TABLE %s ' % target_table
 createsql += ('(' + ','.join(field[0] + ' ' +
     typeconv[field[1]][0] for field in fields) + ')')
 insertsql = 'INSERT INTO %s ' % target_table
-insertsql += ('(' + ','.join(field[0] for field in fields) + ') VALUES (' +
-                ','.join(r'%s' for field in fields) + ')')
+insertsql += ('(' + ','.join(field[0] for field in fields) +
+              ') VALUES (' +
+              ','.join(ph for field in fields) + ')')
 
 # check whether we want to autodrop and completely overwrite
 # existing table with same name or if we want to prompt the user
@@ -227,8 +261,8 @@ if debug_config['debug']:
     print ("append_config: ", append_config)
 
 if yes_config == 0 and append_config == 0:
-    confirm1 = raw_input("Drop if exists and create table %s? Typing 'N' will APPEND "
-                    "to existing table: " % target_table)
+    confirm1 = raw_input("Drop if exists and create table %s? "
+        "Typing 'N' will APPEND to existing table: " % target_table)
 elif append_config == 1:
     confirm1 = 'N'
 else:
@@ -237,22 +271,39 @@ else:
 if debug_config['debug']:
     print ('confirm1: ', confirm1)
 
+sqlcur = sqlconn.cursor()
+
 # if we want to autodrop table or we hit 'y' at the prompt
 # drop the existing table
 if confirm1.strip() == '' or confirm1.strip().lower() == 'y':
-    pgcur.execute('DROP TABLE IF EXISTS ' + target_table)
+    print autodroptable
+    sqlcur.execute(autodroptable)
+
     if debug_config['debug']:
         print createsql
 
-    pgcur.execute(createsql)
-    pgconn.commit()
-    print pgcur.statusmessage
+    sqlcur.execute(createsql)
+    sqlconn.commit()
+    #print pgcur.statusmessage
 
 if debug_config['debug']:
     print insertsql
 
-sizeof_file = sum(1 for line in open(source_file, mode='rU'))
-print "Size of File {}".format(sizeof_file)
+sizeof_file = os.stat(source_file).st_size
+print "File Size: %d" % sizeof_file
+number_of_lines = sum(1 for line in open(source_file, mode='rU'))
+print "Number of Lines in file: %d" % number_of_lines
+
+# average column width:
+#average_line_width = sizeof_file / number_of_lines
+
+# pkgsize autoscaling
+# take into account # of columns and # of total rows
+memory_limit = 10485760
+pkgsize = memory_limit / (sizeof_file / number_of_lines)
+
+#if debug_config['debug']:
+#    raise SystemExit('debugging stop')
 
 # open the source file for reading
 f = open(source_file, mode='rU')
@@ -261,7 +312,7 @@ f = open(source_file, mode='rU')
 # [flatfile] section of the config file
 rowcounter = 0
 exceptioncounter = 0
-eof = 0
+eof = False
 if 'skiplines' in flatfile_config:
     if flatfile_config['skiplines'] > 0:
         rowcounter = int(flatfile_config['skiplines'])
@@ -273,7 +324,7 @@ if 'skiplines' in flatfile_config:
                 pass
 
 total = 0 # total rows inserted
-while eof == 0:
+while not eof:
     insertdata = [] # this is the master array holding multiple
                     # rows to insert (should be <= pkgsize)
     for line in xrange(pkgsize):
@@ -283,7 +334,7 @@ while eof == 0:
         try: # to read next line in file
             row = f.next()
         except StopIteration: # if EOF
-            eof = 1
+            eof = True
             break
 
         try: #to convert line to a suitable unicode string
@@ -331,14 +382,14 @@ while eof == 0:
                 exceptioncounter += 1
                 break
         if len(insertrow) == len(fields): # my line is complete
+            # short reads should be trapped by the try block above
             insertdata.append(tuple(insertrow))
-            #rowcounter += 1
-            #print rowcounter
     if len(insertdata) > 0: # I have data I need to insert
-        pgcur.executemany(insertsql, insertdata)
-        pgconn.commit()
-        print pgcur.statusmessage
+        sqlcur.executemany(insertsql, insertdata)
         total += len(insertdata)
-        print "Rows inserted: {}, {}% of file".format(total, (total*100)/sizeof_file)
-    #if row is None:
+        print "Rows inserted: {}, {}% of file".format(total, (total*100)/number_of_lines)
+
+# no partial commits
+sqlconn.commit()
+
 print "Exceptions: {}".format(exceptioncounter)

@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
     Import Flat file (usually from SAP extract, but can be from Excel too)
     to postgresql. Adapted from pyrfc_read_table except that it takes
@@ -291,7 +292,9 @@ if debug_config['debug']:
 
 sizeof_file = os.stat(source_file).st_size
 print "File Size: %d" % sizeof_file
-number_of_lines = sum(1 for line in open(source_file, mode='rU'))
+number_of_lines = sum(1 for line in codecs.open(
+    filename=source_file, mode='rU',encoding=encoding,
+    errors='ignore'))
 print "Number of Lines in file: %d" % number_of_lines
 
 # average column width:
@@ -306,7 +309,8 @@ pkgsize = memory_limit / (sizeof_file / number_of_lines)
 #    raise SystemExit('debugging stop')
 
 # open the source file for reading
-f = open(source_file, mode='rU')
+f = codecs.open(filename=source_file, mode='rU', encoding=encoding,
+    errors=decoding_error_handler)
 
 # skip lines as specified in skiplines config in the
 # [flatfile] section of the config file
@@ -319,6 +323,8 @@ if 'skiplines' in flatfile_config:
         for i in xrange(int(flatfile_config['skiplines'])):
             try: # to read the next line in the file
                 f.next()
+            except UnicodeDecodeError: # ignore unicode errors on skiplines
+                pass
             except StopIteration: # if EOF
                 eof = 1
                 pass
@@ -327,24 +333,19 @@ total = 0 # total rows inserted
 while not eof:
     insertdata = [] # this is the master array holding multiple
                     # rows to insert (should be <= pkgsize)
-    for line in xrange(pkgsize):
+    for dummy0 in xrange(pkgsize):
         row = None
         rowcounter += 1
         insertrow = []
         try: # to read next line in file
             row = f.next()
+        except UnicodeDecodeError as e:
+            print "{} at row {}".format(e, rowcounter)
+            exceptioncounter += 1
+            continue
         except StopIteration: # if EOF
             eof = True
             break
-
-        try: #to convert line to a suitable unicode string
-            row = codecs.decode(row, encoding, decoding_error_handler)
-        except Exception as e: # we were unable to parse the line according
-                               # to the encoding specified in config
-            print "{} at row {}".format(e, rowcounter)
-            #print repr(row)
-            exceptioncounter += 1
-            continue # go to next line
 
         rowstrip = row.rstrip('\r\n')
         fieldvalue = []

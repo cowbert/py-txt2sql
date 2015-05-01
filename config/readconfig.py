@@ -314,9 +314,9 @@ def get_logging():
 
 def get_extra_line_breaks():
     if args.extra_line_breaks
-        return args.extra_line_breaks
+        return True
     else:
-        return None
+        return False
 
 # Unit tests
 #if __name__ == "__main__":

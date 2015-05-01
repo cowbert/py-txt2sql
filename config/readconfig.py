@@ -16,6 +16,10 @@ parser.add_argument('-f', '--from', dest='src_data')
 parser.add_argument('-t', '--to', dest='target_table')
 parser.add_argument('-d', '--debug', action='store_true')
 parser.add_argument('-y', '--yes', action='store_true')
+parser.add_argument('--extra-line-breaks', action='store_true',
+    help=(
+        'Use this flag when legitimate input fiels may have '
+        'line breaks inserted in the middle of the row.')
 parser.add_argument('--delim', dest='delim')
 parser.add_argument('--qual', dest='qual')
 parser.add_argument('--encoding',dest='encoding')
@@ -306,6 +310,12 @@ def get_logging():
     if 'logging' not in logging:
         logging['logging'] = args.logging
     return logging
+
+def get_extra_line_breaks():
+    if args.logging:
+        return args.logging
+    else:
+        return None
 
 # Unit tests
 #if __name__ == "__main__":

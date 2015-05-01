@@ -325,7 +325,7 @@ if 'skiplines' in flatfile_config:
             except UnicodeDecodeError: # ignore unicode errors on skiplines
                 pass
             except StopIteration: # if EOF
-                eof = 1
+                eof = True
                 pass
 
 total = 0 # total rows inserted

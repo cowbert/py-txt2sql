@@ -11,6 +11,7 @@
 
     Author: Peter C. Lai (peter.lai2@sbdinc.com)
 """
+import os, sys, io, re, decimal, datetime, ast, codecs
 from config import readconfig
 
 logging_config = readconfig.get_logging()
@@ -41,8 +42,6 @@ if logging_config['logging']:
     logwriterinstance = LogWriter(loginstance)
     sys.stdout = logwriterinstance
     sys.stderr = logwriterinstance
-
-import io, re, sys, decimal, datetime, os, ast, codecs
 
 # Helper Functions
 def conv_to_pydate(abap_date):

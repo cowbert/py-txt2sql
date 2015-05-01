@@ -17,6 +17,7 @@ parser.add_argument('-t', '--to', dest='target_table')
 parser.add_argument('-d', '--debug', action='store_true')
 parser.add_argument('-y', '--yes', action='store_true')
 parser.add_argument('--extra-line-breaks', action='store_true',
+    dest='extra_line_breaks',
     help=(
         'Use this flag when legitimate input fiels may have '
         'line breaks inserted in the middle of the row.')
@@ -312,8 +313,8 @@ def get_logging():
     return logging
 
 def get_extra_line_breaks():
-    if args.logging:
-        return args.logging
+    if args.extra_line_breaks
+        return args.extra_line_breaks
     else:
         return None
 

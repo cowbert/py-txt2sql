@@ -20,7 +20,7 @@ parser.add_argument('--extra-line-breaks', action='store_true',
     dest='extra_line_breaks',
     help=(
         'Use this flag when legitimate input fiels may have '
-        'line breaks inserted in the middle of the row.')
+        'line breaks inserted in the middle of the row.'))
 parser.add_argument('--delim', dest='delim')
 parser.add_argument('--qual', dest='qual')
 parser.add_argument('--encoding',dest='encoding')
@@ -313,7 +313,7 @@ def get_logging():
     return logging
 
 def get_extra_line_breaks():
-    if args.extra_line_breaks
+    if args.extra_line_breaks:
         return True
     else:
         return False

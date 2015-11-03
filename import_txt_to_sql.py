@@ -50,21 +50,24 @@ def conv_to_pydate(abap_date):
     to python datetime.date
     """
     abap_date = abap_date.replace('-','')
-    if len(abap_date) != 8:
+    if len(abap_date) < 8:
         result = None
-    elif abap_date == '00000000':
+    elif abap_date[0:8] == '00000000':
         result = None
     else:
-        year = int(abap_date[:4])
-        month = int(abap_date[4:6])
-        day = int(abap_date[6:])
-        #if year == 0 or month == 0 or day == 0:
-        #    result = None
-        #else:
-            #try:
-        result = datetime.date(year, month, day)
-            #except:
+        
+            #year = int(abap_date[0:4])
+            #month = int(abap_date[4:6])
+            #day = int(abap_date[6:8])
+            #if year == 0 or month == 0 or day == 0:
             #    result = None
+            #else:
+                #try:
+        try:
+            result = datetime.date(int(abap_date[0:4]), 
+                int(abap_date[4:6]), int(abap_date[6:8]))
+        except:
+            result = None
     return result
 
 def conv_to_pytime(abap_time):
@@ -123,6 +126,8 @@ delim = flatfile_config['delimiter']
 # if it is a unicode literal, use unicode literal
 # format e.g. u'\x02'
 qual = flatfile_config['qualifier']
+
+escape = flatfile_config['escape']
 
 # Get the character encoding scheme from the config file
 # [flatfile] section
@@ -308,7 +313,7 @@ pkgsize = memory_limit / (sizeof_file / number_of_lines)
 #    raise SystemExit('debugging stop')
 
 # open the source file for reading
-f = codecs.open(filename=source_file, mode='rU', encoding=encoding,
+f = codecs.open(filename=source_file, mode='r', encoding=encoding,
     errors=decoding_error_handler)
 
 # skip lines as specified in skiplines config in the
@@ -350,22 +355,35 @@ while not eof:
         fieldvalue = []
         row_ = []
         isqualified = False
+        rowstriplen = len(rowstrip)
         # parse the line based on qualifier and delimiter
         # tested if all fields in the line is in the format
         # qualFIELDqualdelimqualFIELDqual
-        for pos in xrange(len(rowstrip)):
+        
+        for pos in xrange(rowstriplen):            
             if rowstrip[pos] == qual:
                 # found qualifier
-                isqualified = not isqualified
-                # toggle the qualifier start/stop indicator
-                continue # goto next char
-            if rowstrip[pos] == delim and isqualified is False:
-                row_.append(''.join(fieldvalue))
+                if pos == 0: # i'm on the first char of str
+                    isqualified = True
+                elif not isqualified and rowstrip[pos-1] == delim:
+                    # wasn't qualified and the previous char was delim
+                    isqualified = True
+                elif isqualified and rowstrip[pos-1] == escape:
+                    # was qualified and preivous char was escape char
+                    isqualified = True
+                elif isqualified:
+                    isqualified = False
+                else:
+                    # there is a qual char in the string but this field was not qual
+                    fieldvalue.append(rowstrip[pos])
+            elif rowstrip[pos] == delim and isqualified is False:
+                row_.append(u''.join(fieldvalue))
                 fieldvalue = []
-                continue # goto next char
-            fieldvalue.append(rowstrip[pos]) # build the string for this field
+            else:
+                fieldvalue.append(rowstrip[pos]) # build the string for this field
         # capture the last group
-        row_.append(''.join(fieldvalue))
+        row_.append(u''.join(fieldvalue))
+
         for i in xrange(len(fields)):
             # convert all the fields from unicode to python datatype
             # so that we can insert as the correct data type
@@ -376,7 +394,7 @@ while not eof:
                 else:
                     insertrow.append(typeconv[fields[i][1]][1](row_[i]))
             except IndexError: # short read of the line
-                print "Truncated Row at {} after field {}".format(rowcounter, fields[i-1])
+                print "Truncated Row at row {} after field {}".format(rowcounter, fields[i-1])
                 print "Raw Row: {}".format(repr(rowstrip))
                 print "Packed Row: {}".format(repr(row_))
                 exceptioncounter += 1

@@ -23,6 +23,7 @@ parser.add_argument('--extra-line-breaks', action='store_true',
         'line breaks inserted in the middle of the row.'))
 parser.add_argument('--delim', dest='delim')
 parser.add_argument('--qual', dest='qual')
+parser.add_argument('--escape', dest='escape')
 parser.add_argument('--encoding',dest='encoding')
 parser.add_argument('--skip', dest='skiplines',
     help=('Number of Lines in Source File to Skip '
@@ -141,13 +142,24 @@ def get_flatfile():
         flatfile['fields'] = fields_
     except KeyError:
         raise SystemExit('No fields defined in config to map')
-
+    
+    if 'escape' not in flatfile:
+        if args.escape is None:
+            flatfile['escape'] = u''
+        else:
+            flatfile['escape'] = args.escape
+            
     if 'encoding' not in flatfile:
         if args.encoding is None:
-            flatfile['encoding'] = 'ascii'
+            flatfile['encoding'] = 'raw'
         else:
             flatfile['encoding'] = args.encoding
-
+    
+    if flatfile['encoding'].lower() == 'raw':
+        flatfile['encoding'] = None
+    else:
+        flatfile['encoding'] = flatfile['encoding'].lower()
+    
     flatfile['decoding_error_handler'] = args.decoding_error_handler
 
     if 'source' not in flatfile:
